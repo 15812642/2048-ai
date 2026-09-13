@@ -1,0 +1,5 @@
+# 2048 自我对弈 AI 训练系统依赖
+torch>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+flask>=3.0.0

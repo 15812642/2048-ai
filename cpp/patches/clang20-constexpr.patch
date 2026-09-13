@@ -1,0 +1,11 @@
+--- a/2048.cpp
++++ b/2048.cpp
+@@ -1614,7 +1614,7 @@
+ 	template<typename source = common<weight::segment>>
+ 	struct expectimax {
+ 		constexpr inline operator method() { return { expectimax<source>::estimate, expectimax<source>::optimize }; }
+-		constexpr inline expectimax(utils::options::option opt) {
++		inline expectimax(utils::options::option opt) {
+ 			std::stringstream input;
+ 			auto next = [&](u32 n) -> u32 {
+ 				try {

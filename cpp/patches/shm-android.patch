@@ -1,0 +1,77 @@
+--- a/moporgic/shm.h	2026-09-13 16:22:33.515357949 +0000
++++ b/moporgic/shm.h	2026-09-13 15:37:06.859358989 +0000
+@@ -10,6 +10,8 @@
+ #include <memory>
+ #if defined(__linux__)
+ #include <sys/shm.h>
++#include <sys/mman.h>
++#include <cstring>
+ #include <signal.h>
+ #include <string>
+ #include <fstream>
+@@ -19,7 +21,64 @@
+ 
+ namespace moporgic {
+ class shm {
+-#if defined(__linux__) && !defined(NOSHM)
++#if defined(__linux__) && !defined(NOSHM) && defined(SHM_MMAP)
++public:
++	static constexpr bool support() { return true; }
++
++	template<typename type = void> static type* alloc(size_t size) {
++		if (!enable<type>()) throw std::invalid_argument("shm is disabled");
++		size_t bytes = size * sizeof(type);
++		if (bytes == 0) bytes = sizeof(type);
++		void* shm = ::mmap(nullptr, bytes, PROT_READ | PROT_WRITE,
++			MAP_SHARED | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
++		if (shm == MAP_FAILED) throw std::bad_alloc();
++		info().emplace(shm, std::make_pair(0, bytes));
++		try {
++			new (cast<type*>(shm)) type[size]();
++		} catch (...) {}
++		return cast<type*>(shm);
++	}
++
++	template<typename type = void> static void free(type* shm) {
++		if (!enable<type>()) throw std::invalid_argument("shm is disabled");
++		auto inf = info().at(shm);
++		size_t bytes = inf.second;
++		info().erase(shm);
++		try {
++			for (size_t i = 0; i < bytes / sizeof(type); i++) cast<type*>(shm)[i].~type();
++		} catch (...) {}
++		::munmap(shm, bytes);
++	}
++
++protected:
++	static void clear() {
++		if (&info(false) == nullptr) return;
++		for (auto blk : info()) {
++			::munmap(blk.first, blk.second.second);
++		}
++		info().clear();
++	}
++
++	static __attribute__((constructor)) void init() {
++		signal(SIGTERM, shm::cleanup_handler);
++		signal(SIGINT,  shm::cleanup_handler);
++	}
++	static __attribute__((destructor)) void exit() {
++		if (cleanup()) clear();
++		if (&info(false)) delete &info();
++	}
++	static void cleanup_handler(int i) {
++		if (cleanup()) clear();
++		std::quick_exit(i);
++	}
++
++	static std::map<void*, std::pair<int, size_t>>& info(bool try_init = true) {
++		static std::map<void*, std::pair<int, size_t>> *p = nullptr;
++		if (try_init && !p) p = new std::map<void*, std::pair<int, size_t>>;
++		return *p;
++	}
++
++#elif defined(__linux__) && !defined(NOSHM)
+ public:
+ 	static constexpr bool support() { return true; }
+ 

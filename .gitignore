@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# 训练产物（大文件，不入库）
+outputs/
+*.npz
+*.w
+*.x
+*.pt
+*.pth
+*.log
+*.db
+*.sqlite*
+
+# 系统
+.DS_Store
+Thumbs.db
+*.swp

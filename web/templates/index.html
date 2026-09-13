@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2048 AI · 训练控制台</title>
+<link rel="stylesheet" href="/static/style.css?v=3">
+<script src="/static/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">2048</span>
+    <div class="brand-text">
+      <b>AI 训练控制台</b>
+      <small id="brandSub">DQN · Rainbow · N-Tuple SOTA</small>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="algo-switch">
+      <button class="algo-btn active" data-algo="v1">DQN v1</button>
+      <button class="algo-btn" data-algo="v2">Rainbow v2</button>
+      <button class="algo-btn" data-algo="v3">N-Tuple v3 ★</button>
+    </div>
+    <div class="pill" id="pillFresh">● –</div>
+    <div class="pill" id="pillAlgo">DQN v1</div>
+    <div class="pill" id="pillDevice">设备 –</div>
+    <div class="pill" id="pillBackend">–</div>
+    <div class="status-badge idle" id="statusBadge"><i></i><span>连接中…</span></div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="monitor">实时监控</button>
+  <button class="tab" data-tab="play">AI 演示</button>
+  <button class="tab" data-tab="models">模型管理</button>
+  <button class="tab" data-tab="logs">训练日志</button>
+</nav>
+
+<main>
+
+  <!-- ============ 实时监控 ============ -->
+  <section class="panel active" id="panel-monitor">
+
+    <!-- 并行实验（有实验数据时才显示） -->
+    <div id="expSection" style="display:none">
+      <div class="section-head">
+        <h2>并行实验对比</h2>
+        <span class="hint" id="expHint"></span>
+      </div>
+      <div class="exp-grid" id="expCards"></div>
+      <div class="chart-card wide">
+        <h3>实验分数曲线对比 <small>近 300 局滑动平均 · 按局数对齐</small></h3>
+        <div class="chart-box tall"><canvas id="chartCompare"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 空数据提示 -->
+    <div class="empty-hint" id="emptyHint" style="display:none">
+      <span>📭</span>
+      <span id="emptyHintText">暂无训练数据</span>
+    </div>
+
+    <!-- 主指标卡 -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <label>训练局数</label>
+        <b id="stEpisode">0</b>
+        <small id="stEpisodeSub">目标 –</small>
+        <div class="pbar"><i id="pbEpisode"></i></div>
+      </div>
+      <div class="stat-card">
+        <label id="lbAvg">近 50 局均分</label>
+        <b id="stAvg">–</b>
+        <small id="stSteps">总步数 0</small>
+      </div>
+      <div class="stat-card" id="cardThird">
+        <label id="lbThird">探索率 ε</label>
+        <b id="stThird">–</b>
+        <small id="stThirdSub">–</small>
+      </div>
+      <div class="stat-card highlight">
+        <label>最佳评估均分</label>
+        <b id="stBest">–</b>
+        <small id="stVersion">–</small>
+      </div>
+    </div>
+
+    <!-- 训练控制 -->
+    <div class="control-card">
+      <div class="control-head">
+        <h3>训练控制 <span class="algo-tag" id="ctlAlgoTag">DQN v1</span></h3>
+        <span class="hint" id="ctlHint">参数修改后点击「启动训练」生效</span>
+      </div>
+
+      <!-- v1 / v2 参数 -->
+      <div class="control-body" id="ctlV1">
+        <label>训练局数 <input type="number" id="inpEpisodes" value="5000" min="1"></label>
+        <label>MCTS 进程数 <input type="number" id="inpParallel" value="0" min="0" title="0 = CPU 核数 - 1"></label>
+        <label>MCTS 局间隔 <input type="number" id="inpInterval" value="20" min="0" title="每 N 局插入 1 局 MCTS 决策"></label>
+        <label>ε 衰减周期 <input type="number" id="inpEpsDecay" value="200000" min="1000" step="10000"
+            title="ε 从 1.0 线性衰减到 0.05 所需的环境步数"></label>
+        <label class="chk"><input type="checkbox" id="inpResume"> 断点续训</label>
+        <label class="chk"><input type="checkbox" id="inpNoMcts"> 禁用 MCTS（最快）</label>
+      </div>
+
+      <!-- v3 参数 -->
+      <div class="control-body" id="ctlV3" style="display:none">
+        <label>训练局数 <input type="number" id="v3Episodes" value="3000000" min="1" step="100000"></label>
+        <label>图案集
+          <select id="v3Patterns">
+            <option value="8">8 图案 · 512MB（推荐）</option>
+            <option value="12">12 图案 · 768MB（容量大）</option>
+            <option value="5">12×5元组 · 48MB（最快）</option>
+          </select>
+        </label>
+        <label>TD(λ) λ <input type="number" id="v3Lambda" value="0.5" min="0" max="1" step="0.1"
+            title="0=TD(0)，1=Monte Carlo。0.5 为论文推荐"></label>
+        <label>学习率 α <input type="number" id="v3Alpha" value="0.1" min="0.001" step="0.01"></label>
+        <label>乐观初始化 <input type="number" id="v3Vinit" value="320000" min="0" step="10000"
+            title="论文关键技巧，0=关闭"></label>
+        <label class="chk"><input type="checkbox" id="v3Resume"> 断点续训</label>
+      </div>
+
+      <div class="control-actions">
+        <button class="btn primary" id="btnStart">▶ 启动训练</button>
+        <button class="btn danger" id="btnStop" disabled>■ 停止训练</button>
+        <span class="cmd" id="ctlCmd"></span>
+      </div>
+    </div>
+
+    <!-- 图表 -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3 id="ttlScore">分数曲线 <small id="subScore">原始 + 50 局滑动平均</small></h3>
+        <div class="chart-box"><canvas id="chartScore"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3 id="ttlSecond">TD Loss <small id="subSecond">滑动平均 · 对数轴</small></h3>
+        <div class="chart-box"><canvas id="chartLoss"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3 id="ttlThird">ε 探索率衰减</h3>
+        <div class="chart-box"><canvas id="chartEps"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>里程碑达成率 <small>各方块达成比例</small></h3>
+        <div class="chart-box"><canvas id="chartMilestone"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AI 演示 ============ -->
+  <section class="panel" id="panel-play">
+    <div class="play-layout">
+      <div class="board-side">
+        <div class="board" id="board"></div>
+        <div class="board-hint" id="boardHint">点击右侧「开始演示」观看 AI 自动游玩</div>
+      </div>
+      <aside class="play-side">
+        <div class="play-stats">
+          <div><label>分数</label><b id="plScore">0</b></div>
+          <div><label>最大方块</label><b id="plMax">–</b></div>
+          <div><label>步数</label><b id="plSteps">0</b></div>
+        </div>
+        <div class="play-form">
+          <label>模型
+            <select id="plModel">
+              <option value="best.pt">best.pt（v1/v2 最佳）</option>
+              <option value="latest.pt">latest.pt（v1/v2 最新）</option>
+              <option value="best.npz">best.npz（v3 最佳）</option>
+              <option value="latest.npz">latest.npz（v3 最新）</option>
+            </select>
+          </label>
+          <label>播放间隔 <span class="val" id="plDelayVal">0.10s</span>
+            <input type="range" id="plDelay" min="0" max="1" step="0.05" value="0.1">
+          </label>
+          <label id="lbSims">搜索/模拟 <span class="val" id="plSimsVal">关闭</span>
+            <input type="range" id="plSims" min="0" max="120" step="10" value="0">
+          </label>
+          <div class="play-buttons">
+            <button class="btn primary" id="btnPlay">▶ 开始演示</button>
+            <button class="btn" id="btnPlayStop" disabled>■ 停止</button>
+          </div>
+        </div>
+        <div class="move-list" id="moveList"></div>
+        <div class="play-result" id="plResult"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ 模型管理 ============ -->
+  <section class="panel" id="panel-models">
+    <div class="card">
+      <div class="log-head">
+        <h3>全部模型 <small id="modelsHint" style="color:#5d6675;font-weight:400"></small></h3>
+        <div>
+          <label class="chk"><input type="checkbox" id="mdlOnlyCurrent"> 仅当前算法</label>
+          <button class="btn small" id="btnMdlRefresh">刷新</button>
+        </div>
+      </div>
+      <table class="tbl" id="tblModels">
+        <thead><tr>
+          <th>来源</th><th>模型文件</th><th>大小</th><th>修改时间</th><th>操作</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>用模型启动新实验 <small style="color:#5d6675;font-weight:400">从选定的模型热启动，继续训练或迁移参数</small></h3>
+      <div class="eval-form">
+        <label>模型来源 <select id="mxSrc"></select></label>
+        <label>模型文件 <select id="mxModel"></select></label>
+        <label>新实验名 <input type="text" id="mxName" placeholder="自动生成" style="width:110px"></label>
+        <label>并行 Worker <input type="number" id="mxWorkers" value="3" min="0" max="8"
+            title="0 = 单进程；>0 使用 Hogwild 并行训练器"></label>
+        <label>目标局数 <input type="number" id="mxEpisodes" value="3000000" step="100000"></label>
+        <label class="chk"><input type="checkbox" id="mxSamePatterns" checked disabled> 图案集自动匹配</label>
+        <button class="btn primary" id="btnStartFromModel">▶ 用此模型启动</button>
+      </div>
+      <pre class="eval-out" id="mxOut" style="min-height:44px">选择模型后点击「用此模型启动」，会创建一个新实验目录并从该模型继续训练。</pre>
+    </div>
+
+    <div class="card">
+      <h3>快速评测</h3>
+      <div class="eval-form">
+        <label>模型 <select id="evModel">
+          <option>best.pt</option><option>latest.pt</option>
+          <option>best.npz</option><option>latest.npz</option>
+        </select></label>
+        <label>局数 <input type="number" id="evGames" value="10" min="1" max="200"></label>
+        <label>搜索深度
+          <select id="evDepth">
+            <option value="0">1-ply 贪心（最快）</option>
+            <option value="2">2-ply expectimax（+36%，推荐）</option>
+            <option value="3">3-ply expectimax（最强，约 60s/局）</option>
+          </select>
+        </label>
+        <button class="btn primary" id="btnEval">开始评测</button>
+        <span class="hint" id="evHint">2-ply 约 4ms/步；3-ply 约 150ms/步</span>
+      </div>
+      <pre class="eval-out" id="evOut"></pre>
+    </div>
+  </section>
+
+  <!-- ============ 训练日志 ============ -->
+  <section class="panel" id="panel-logs">
+    <div class="card log-card">
+      <div class="log-head">
+        <h3>训练日志</h3>
+        <div>
+          <label class="chk"><input type="checkbox" id="logAuto" checked> 自动刷新</label>
+          <button class="btn small" id="btnLogRefresh">刷新</button>
+        </div>
+      </div>
+      <pre class="log-view" id="logView">加载中…</pre>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  2048 AI Training Console · DQN + Rainbow + N-Tuple(TD-λ) + Expectimax
+</footer>
+<script src="/static/app.js?v=3"></script>
+</body>
+</html>
