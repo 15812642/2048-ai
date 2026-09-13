@@ -1,0 +1,29 @@
+# Folders and settings
+/bin
+/Release
+/Debug
+/Default
+/__pycache__
+/.settings
+/.project
+/.cproject
+/.pydevproject
+/.issues
+/.vscode
+
+# Executables and compiler related files
+2048
+2048.exe
+2048.o
+2048.obj
+2048.gcda
+
+# Model files
+*.w
+
+# Log files and caches
+*.log
+*.x
+make-profile.sh
+*.DS_Store
+[Tt]humbs.db

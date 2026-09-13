@@ -3,6 +3,28 @@
 本目录收录本项目把官方 C++ 框架 [moporgic/TDL2048+](https://github.com/moporgic/TDL2048)
 部署到「x86 服务器 + Android 手机（Termux）」的全部补丁与脚本。
 
+```
+cpp/
+├── TDL2048/               ★ 打过补丁的完整源码（可直接编译，MIT 许可）
+│   └── PATCHES_APPLIED.md    两个补丁的详细说明
+├── patches/               标准 unified diff（可对原始版上游源码应用）
+│   ├── shm-android.patch
+│   └── clang20-constexpr.patch
+├── build_server.sh        服务器一键构建
+└── build_android.sh       Android 交叉编译脚本
+```
+
+**最省事的用法**：直接用 `cpp/TDL2048/`（补丁已应用）：
+
+```bash
+cd cpp/TDL2048
+# 服务器
+g++ -O3 -std=c++17 -o 2048 2048.cpp
+# Android
+$NDK/.../aarch64-linux-android21-clang++ -O3 -std=c++17 -pthread -DSHM_MMAP \
+  -static-libstdc++ -o 2048-arm64 2048.cpp
+```
+
 ## 为什么用 C++
 
 | 指标 | Python (本仓库 v3) | C++ (TDL2048+) |

@@ -21,3 +21,10 @@ outputs/
 .DS_Store
 Thumbs.db
 *.swp
+
+# TDL2048 编译产物
+cpp/TDL2048/2048
+cpp/TDL2048/2048.bak
+cpp/TDL2048/2048_native
+cpp/TDL2048/2048-arm64
+cpp/TDL2048/*.o
